@@ -13,7 +13,9 @@ import bpy
 
 # ###
 # Issues to solve:
-# - add support to copy and paste the drivers and animation data (on shape keys)
+# - Working on getting the drivers to be pasted back to the original object
+# - Then will add the same function to copy and paste any plane animation data on the shape keys
+
 
 # Helper functions
 def disable_armature_modifiers(context, selected_modifiers, disable_armatures):
@@ -62,6 +64,75 @@ def restore_shape_key_properties(obj, properties_list):
         for prop, value in properties_list[idx - 1].items():
             setattr(key_block, prop, value)
 
+def copy_shape_key_drivers(obj, shape_key_properties):
+    ''' Copy drivers for shape key properties '''
+
+    drivers = {}
+    
+    # Ensure the object has a shape keys animation data
+    if not obj.data.shape_keys.animation_data:
+        print(f"No animation data found for {obj.name}.")
+        return drivers
+
+    # Loop through all the drivers in the shape keys animation data
+    for driver in obj.data.shape_keys.animation_data.drivers:
+        # Only consider drivers related to shape key properties
+        shape_key_drivers = []
+
+        # Extract the property name from the data_path
+        data_path_parts = driver.data_path.split('.')
+        if len(data_path_parts) > 1:
+            property_name = data_path_parts[-1]  # The last part of the data path is the property name (e.g. 'value', 'slider_min', 'slider_max')
+            
+            if property_name not in shape_key_properties:
+                continue  # Skip if the property isn't one we care about
+            
+            # Create a dictionary for the driver data
+            driver_data = {
+                "fcurve": driver,
+                "property": property_name 
+            }
+            
+            # Append the driver data to the shape_key_drivers list
+            shape_key_drivers.append(driver_data)
+            print(f"Captured driver for property: {property_name}")
+
+        if shape_key_drivers:
+            drivers[driver.id_data.name] = shape_key_drivers
+
+    print(drivers) #DEBUG
+    return drivers
+
+
+def restore_shape_key_drivers(obj, drivers):
+    ''' Restore drivers for shape key properties using from_existing() '''
+
+    if not obj.data.shape_keys.animation_data:
+        obj.data.shape_keys.animation_data_create()
+
+    for shape_key_name, shape_key_drivers in drivers.items():
+        # Find the shape key block by name
+        shape_key_block = obj.data.shape_keys.key_blocks.get(shape_key_name)
+        if not shape_key_block:
+            print(f"Shape key {shape_key_name} not found on {obj.name}. Skipping...")
+            continue
+
+        for driver_data in shape_key_drivers:
+            # Extract the fcurve and property
+            fcurve = driver_data["fcurve"]
+            property_name = driver_data["property"]
+
+            # Add the driver to the shape key property using from_existing
+            try:
+                driver = shape_key_block.driver_add(property_name)
+                driver.from_existing(fcurve)
+
+                print(f"Restored driver for {property_name} on shape key {shape_key_name}.")
+
+            except Exception as e:
+                print(f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
+
+
 def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatures):
     ''' Apply the selected modifiers to the mesh even if it has shape keys '''
     original_obj = context.view_layer.objects.active
@@ -83,6 +154,9 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
     # Save the shape key properties
     properties = ["name", "mute", "lock_shape", "value", "slider_min", "slider_max", "vertex_group", "relative_key"]
     shape_key_properties = save_shape_key_properties(original_obj, properties)
+
+    # Copy drivers for shape key properties
+    shape_key_drivers = copy_shape_key_drivers(original_obj, properties)
 
     # Remove all shape keys and apply modifiers on the original
     bpy.ops.object.shape_key_remove(all=True)
@@ -126,8 +200,11 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
         context.view_layer.objects.active = original_obj
         bpy.ops.object.shape_key_transfer()
 
-        # Restore shape key properties (THIS DOESN'T WORK)
+        # Restore shape key properties
         restore_shape_key_properties(original_obj, shape_key_properties)
+
+        # Restore the drivers for this shape key
+        restore_shape_key_drivers(original_obj, shape_key_drivers)
 
         # Clean up the temp object
         #bpy.data.objects.remove(temp_obj)
@@ -169,13 +246,19 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
         return {'FINISHED'}
 
     def draw(self, context):
+        show_armature_option = False
         self.layout.label(text="Select which modifier(s) to apply")
         box = self.layout.box()
+        
         for prop in self.collection_property:
             box.prop(prop, "apply_modifier", text=prop.name)
+            for modifier in context.object.modifiers:
+                if modifier.type == 'ARMATURE' and modifier.show_viewport:
+                    show_armature_option = True
 
-        self.layout.separator() #TODO: only show this if there are any armarture modifiers in the stack
-        self.layout.prop(self, "disable_armatures")
+        if show_armature_option: # only show this if there is an enabled armature modifier on the mesh
+            self.layout.separator() 
+            self.layout.prop(self, "disable_armatures")
 
     def invoke(self, context, event):
         self.collection_property.clear()
