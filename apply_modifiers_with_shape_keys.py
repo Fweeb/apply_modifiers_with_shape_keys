@@ -38,22 +38,21 @@ def duplicate_object(obj):
     bpy.ops.object.duplicate_move(OBJECT_OT_duplicate={"linked": False, "mode": 'TRANSLATION'}, TRANSFORM_OT_translate={"value": (0, 0, 0)})
 
 def apply_modifier_to_object(context, obj, selected_modifiers):
-    context.view_layer.objects.active = obj
+    bpy.context.view_layer.objects.active = obj
     for modifier_name in selected_modifiers:
         bpy.ops.object.modifier_apply(modifier=modifier_name)
 
 def apply_shape_keys(ob):
     basis_key = ob.data.shape_keys.key_blocks[0]
     # Create a temporary shape key that's a mix of current keys
-    temp_shape_key = ob.shape_key_add(name="TEMP KEY", from_mix=True) #XXX Assumes there's already shape keys on the object
+    temp_shape_key = ob.shape_key_add(name="TEMP KEY", from_mix=True)
 
     # Copy the coordinates of the temporary shape key to the Basis
     for i in range(0, len(basis_key.points)):
-        #print(i, temp_shape_key.points[i].co) #DEBUG
         basis_key.points[i].co = temp_shape_key.points[i].co
 
     # Remove all shape keys
-    for shape_key in active_object.data.shape_keys.key_blocks:
+    for shape_key in ob.data.shape_keys.key_blocks:
         ob.shape_key_remove(shape_key)
 
 def save_shape_key_properties(obj, properties):
@@ -85,7 +84,7 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
     disabled_armature_modifiers = disable_armature_modifiers(context, selected_modifiers, disable_armatures)
 
     # Duplicate the object
-    duplicate_object(original_obj)
+    duplicate_object(original_obj)    
     copy_obj = context.view_layer.objects.active
 
     # Make the Original Object the active object
@@ -102,13 +101,16 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
     # Add a basis shape key back to the original object
     original_obj.shape_key_add(name='Basis',from_mix=False)
 
+    # Deselect the original object ## THIS ISN'T NEEDED?
+    original_obj.select_set(False)
+
     # Loop over the original shape keys, create a temp mesh, apply single shape, apply modifers and merge back to the original (1 shape at a time)
-    for i, shape_properties in enumerate(shape_key_properties):
+    for i in range(0, shapes_count - 1):
         # Create a temp object
         context.view_layer.objects.active = copy_obj
         duplicate_object(copy_obj)
-        temp_obj = bpy.context.active_object
-
+        temp_obj = context.active_object
+        
         # Pin the shape we want
         bpy.data.objects[temp_obj.name].show_only_shape_key = True
         temp_obj.active_shape_key_index = i + 1
@@ -118,18 +120,19 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
 
         # Apply modifiers to temp object (THIS ISN'T WORKING HERE BUT IT WORKS EARLIER)
         apply_modifier_to_object(context, temp_obj, selected_modifiers)
-
-        # Verify the meshes have the same amount of verts
+            
+        # # Verify the meshes have the same amount of verts
         # if len(original_obj.data.vertices) != len(temp_obj.data.vertices):
-        #     error_message = "Objects have a different number of vertices!"
+        #     error_message = "Objects have a different number of vertices after applying " + modifier_name + " modifier"
         #     return False, error_message
 
         # Add a basis shape key back to the temp object
-        original_obj.shape_key_add(name='Basis',from_mix=False)
+        temp_obj.shape_key_add(name='Basis',from_mix=False)
 
         # Transfer the temp object as a shape back to orginal
         temp_obj.select_set(True)
         context.view_layer.objects.active = original_obj
+        print("trying to join", temp_obj.name , "to", original_obj,  "as shape")
         bpy.ops.object.shape_key_transfer()
 
         # Restore shape key properties (THIS DOESN'T WORK)
