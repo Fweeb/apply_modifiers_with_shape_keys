@@ -94,7 +94,7 @@ def copy_shape_key_drivers(obj, shape_key_properties):
 
             # Create a dictionary for the driver data
             driver_data = {
-                "fcurve": driver,
+                "driver": driver,
                 "property": property_name 
             }
             
@@ -121,13 +121,39 @@ def restore_shape_key_drivers(obj, drivers):
 
         for driver_data in shape_key_drivers:
             # Extract the fcurve and property
-            fcurve = driver_data["fcurve"]
+            source_fcurve = driver_data["driver"]
             property_name = driver_data["property"]
 
-            # Add the driver to the shape key property using from_existing
+            # Add the driver to the shape key property
             try:
-                driver = shape_key_block.driver_add(property_name)
-                driver.from_existing(fcurve)
+                # Remove any drivers or animation on the shape keys
+                obj.data.shape_keys.animation_data_clear()
+
+                new_driver = shape_key_block.driver_add(property_name)
+               
+                
+                # set the type
+                new_driver.driver.type = source_fcurve.driver.type
+
+                # Copy the driver expression if it exists
+                if source_fcurve.driver.expression:
+                    new_driver.driver.expression = source_fcurve.driver.expression
+                
+                # Copy the driver variables
+                print("The source object has this many variables",len(source_fcurve.driver.variables))
+                for var in source_fcurve.driver.variables:
+                    new_var = new_driver.driver.variables.new()
+                    new_var.name = var.name
+                    new_var.type = var.type
+
+                    # Copy each target for the variable
+                    for idx, target in enumerate(var.targets):
+                        new_var.targets[idx].id_type = target.id_type
+                        new_var.targets[idx].id = target.id # TO DO: this is the copy object when it should be the original
+                        new_var.targets[idx].data_path = target.data_path
+                        new_var.targets[idx].bone_target = target.bone_target
+                        new_var.targets[idx].transform_type = target.transform_type
+                        new_var.targets[idx].transform_space = target.transform_space
 
                 print(f"Restored driver for {property_name} on shape key {shape_key_name}.")
 
@@ -160,8 +186,8 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
     properties = ["name", "mute", "lock_shape", "value", "slider_min", "slider_max", "vertex_group", "relative_key"]
     shape_key_properties = save_shape_key_properties(original_obj, properties)
 
-    # Copy drivers for shape key properties
-    shape_key_drivers = copy_shape_key_drivers(original_obj, properties)
+    # Copy drivers for shape keys (from the copy because the original ones will be gone in a moment)
+    shape_key_drivers = copy_shape_key_drivers(copy_obj, properties)
 
     # Remove all shape keys and apply modifiers on the original
     bpy.ops.object.shape_key_remove(all=True)
