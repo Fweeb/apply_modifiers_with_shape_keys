@@ -9,6 +9,7 @@ bl_info = {
 }
 
 import bpy
+import re
 
 
 # ###
@@ -68,7 +69,7 @@ def copy_shape_key_drivers(obj, shape_key_properties):
     ''' Copy drivers for shape key properties '''
 
     drivers = {}
-    
+
     # Ensure the object has a shape keys animation data
     if not obj.data.shape_keys.animation_data:
         print(f"No animation data found for {obj.name}.")
@@ -87,6 +88,10 @@ def copy_shape_key_drivers(obj, shape_key_properties):
             if property_name not in shape_key_properties:
                 continue  # Skip if the property isn't one we care about
             
+            # Find the shape key name
+            match = re.search(r'key_blocks\["(.*)"\]', driver.data_path)
+            shape_key_name = match.group(1)
+
             # Create a dictionary for the driver data
             driver_data = {
                 "fcurve": driver,
@@ -95,14 +100,11 @@ def copy_shape_key_drivers(obj, shape_key_properties):
             
             # Append the driver data to the shape_key_drivers list
             shape_key_drivers.append(driver_data)
-            print(f"Captured driver for property: {property_name}")
 
         if shape_key_drivers:
-            drivers[driver.id_data.name] = shape_key_drivers
+            drivers[shape_key_name] = shape_key_drivers
 
-    print(drivers) #DEBUG
     return drivers
-
 
 def restore_shape_key_drivers(obj, drivers):
     ''' Restore drivers for shape key properties using from_existing() '''
@@ -132,7 +134,6 @@ def restore_shape_key_drivers(obj, drivers):
             except Exception as e:
                 print(f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
 
-
 def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatures):
     ''' Apply the selected modifiers to the mesh even if it has shape keys '''
     original_obj = context.view_layer.objects.active
@@ -143,6 +144,10 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
 
     # Disable armatures if necessary
     disabled_armature_modifiers = disable_armature_modifiers(context, selected_modifiers, disable_armatures)
+
+    # Save the pin option setting and active shape key index
+    pin_setting = bpy.data.objects[original_obj.name].show_only_shape_key
+    saved_active_shape_key_index = original_obj.active_shape_key_index
 
     # Duplicate the object
     duplicate_object(original_obj)
@@ -216,6 +221,10 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
     if disable_armatures:
         for modifier in disabled_armature_modifiers:
             modifier.show_viewport = True
+
+    # Restore the pin option setting and active shape key index
+    bpy.data.objects[original_obj.name].show_only_shape_key = pin_setting
+    original_obj.active_shape_key_index =  saved_active_shape_key_index
 
     return True, None
 
