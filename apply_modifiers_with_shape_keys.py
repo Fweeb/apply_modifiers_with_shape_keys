@@ -11,11 +11,9 @@ bl_info = {
 import bpy
 import re
 
-
 # ###
 # Issues to solve:
-# - Need to add the same function to copy and paste any plane animation data on the shape keys
-
+# - Need to add the same function to copy and paste any animation data on the shape keys
 
 # Helper functions
 def disable_armature_modifiers(context, selected_modifiers, disable_armatures):
@@ -105,7 +103,7 @@ def copy_shape_key_drivers(obj, shape_key_properties):
 
     return drivers
 
-def restore_shape_key_drivers(obj, drivers, copy_obj):
+def restore_shape_key_drivers(obj, copy_obj,drivers):
     ''' Restore drivers for shape key properties using from_existing() '''
 
     if not obj.data.shape_keys.animation_data:
@@ -114,8 +112,7 @@ def restore_shape_key_drivers(obj, drivers, copy_obj):
     for shape_key_name, shape_key_drivers in drivers.items():
         # Find the shape key block by name
         shape_key_block = obj.data.shape_keys.key_blocks.get(shape_key_name)
-        if not shape_key_block:
-            print(f"Shape key {shape_key_name} not found on {obj.name}. Skipping...")
+        if not shape_key_block:            
             continue
 
         for driver_data in shape_key_drivers:
@@ -130,7 +127,6 @@ def restore_shape_key_drivers(obj, drivers, copy_obj):
 
                 new_driver = shape_key_block.driver_add(property_name)
                
-                
                 # set the type
                 new_driver.driver.type = source_fcurve.driver.type
 
@@ -139,7 +135,6 @@ def restore_shape_key_drivers(obj, drivers, copy_obj):
                     new_driver.driver.expression = source_fcurve.driver.expression
                 
                 # Copy the driver variables
-                print("The source object has this many variables",len(source_fcurve.driver.variables))
                 for var in source_fcurve.driver.variables:
                     new_var = new_driver.driver.variables.new()
                     new_var.name = var.name
@@ -156,10 +151,29 @@ def restore_shape_key_drivers(obj, drivers, copy_obj):
                         new_var.targets[idx].transform_type = target.transform_type
                         new_var.targets[idx].transform_space = target.transform_space
 
-                print(f"Restored driver for {property_name} on shape key {shape_key_name}.")
+                print(f"Restored driver for {property_name} on shape key {shape_key_name}.") 
 
             except Exception as e:
                 print(f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
+
+def copy_shape_key_animation(source_obj, target_obj):
+    ''' Relink all shape key animations (keyframes) for all properties from one object to another '''
+    
+    # Ensure the source object has an action for shape keys
+    if not source_obj.data.shape_keys.animation_data:
+        print(f"{source_obj.name} has no animation data for shape keys.")# DEBUG
+        return
+    
+    if not source_obj.data.shape_keys.animation_data.action:
+        print(f"{source_obj.name} has no action for shape keys.") # DEBUG
+        return
+    
+    # Link the existing action to the target object
+    target_obj.data.shape_keys.animation_data_create()  # Create animation data for the target object if needed
+    target_obj.data.shape_keys.animation_data.action = source_obj.data.shape_keys.animation_data.action
+    
+    print(f"Shape key animations copied from {source_obj.name} to {target_obj.name}.") # DEBUG
+
 
 def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatures):
     ''' Apply the selected modifiers to the mesh even if it has shape keys '''
@@ -236,13 +250,16 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
         restore_shape_key_properties(original_obj, shape_key_properties)
 
         # Restore the drivers for this shape key
-        restore_shape_key_drivers(original_obj, shape_key_drivers, copy_obj)
+        restore_shape_key_drivers(original_obj, copy_obj, shape_key_drivers)
 
         # Clean up the temp object
-        #bpy.data.objects.remove(temp_obj)
+        bpy.data.objects.remove(temp_obj)
+
+    # Restore any shape key animation
+    # copy_shape_key_animation(copy_obj, original_obj)
 
     # Clean up the duplicate object
-    #bpy.data.objects.remove(copy_obj)
+    # bpy.data.objects.remove(copy_obj)
 
     # Re-enable armature modifiers
     if disable_armatures:
@@ -252,7 +269,6 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
     # Restore the pin option setting and active shape key index
     bpy.data.objects[original_obj.name].show_only_shape_key = pin_setting
     original_obj.active_shape_key_index =  saved_active_shape_key_index
-
     return True, None
 
 # Property Collection
