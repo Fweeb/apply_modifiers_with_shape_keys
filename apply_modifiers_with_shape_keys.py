@@ -14,8 +14,7 @@ import re
 
 # ###
 # Issues to solve:
-# - Working on getting the drivers to be pasted back to the original object
-# - Then will add the same function to copy and paste any plane animation data on the shape keys
+# - Need to add the same function to copy and paste any plane animation data on the shape keys
 
 
 # Helper functions
@@ -106,7 +105,7 @@ def copy_shape_key_drivers(obj, shape_key_properties):
 
     return drivers
 
-def restore_shape_key_drivers(obj, drivers):
+def restore_shape_key_drivers(obj, drivers, copy_obj):
     ''' Restore drivers for shape key properties using from_existing() '''
 
     if not obj.data.shape_keys.animation_data:
@@ -149,7 +148,9 @@ def restore_shape_key_drivers(obj, drivers):
                     # Copy each target for the variable
                     for idx, target in enumerate(var.targets):
                         new_var.targets[idx].id_type = target.id_type
-                        new_var.targets[idx].id = target.id # TO DO: this is the copy object when it should be the original
+                        if target.id == copy_obj: # if the target is point to the copy object this should be changed to the orginal object
+                            target.id = obj
+                        new_var.targets[idx].id = target.id
                         new_var.targets[idx].data_path = target.data_path
                         new_var.targets[idx].bone_target = target.bone_target
                         new_var.targets[idx].transform_type = target.transform_type
@@ -235,7 +236,7 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
         restore_shape_key_properties(original_obj, shape_key_properties)
 
         # Restore the drivers for this shape key
-        restore_shape_key_drivers(original_obj, shape_key_drivers)
+        restore_shape_key_drivers(original_obj, shape_key_drivers, copy_obj)
 
         # Clean up the temp object
         #bpy.data.objects.remove(temp_obj)
