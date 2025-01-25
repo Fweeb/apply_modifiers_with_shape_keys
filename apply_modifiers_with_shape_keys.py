@@ -253,10 +253,10 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
         restore_shape_key_drivers(original_obj, copy_obj, shape_key_drivers)
 
         # Clean up the temp object
-        bpy.data.objects.remove(temp_obj)
+        # bpy.data.objects.remove(temp_obj)
 
     # Restore any shape key animation
-    # copy_shape_key_animation(copy_obj, original_obj)
+    copy_shape_key_animation(copy_obj, original_obj)
 
     # Clean up the duplicate object
     # bpy.data.objects.remove(copy_obj)
