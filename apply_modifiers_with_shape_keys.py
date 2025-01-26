@@ -11,10 +11,6 @@ bl_info = {
 import bpy
 import re
 
-# ###
-# Issues to solve:
-# - shape keys are not correctly transferring their positions back to the orignal object.
-
 # Helper functions
 def disable_armature_modifiers(context, selected_modifiers, disable_armatures):
     ''' if there is an armature modifier on the mesh, you can disable it so it doesn't affect the deformation
@@ -69,7 +65,7 @@ def copy_shape_key_drivers(obj, shape_key_properties):
 
     # Ensure the object has a shape keys animation data
     if not obj.data.shape_keys.animation_data:
-        print(f"No animation data found for {obj.name}.")
+        # print(f"No animation data found for {obj.name}.") # DEBUG
         return drivers
 
     # Loop through all the drivers in the shape keys animation data
@@ -151,29 +147,28 @@ def restore_shape_key_drivers(obj, copy_obj,drivers):
                         new_var.targets[idx].transform_type = target.transform_type
                         new_var.targets[idx].transform_space = target.transform_space
 
-                print(f"Restored driver for {property_name} on shape key {shape_key_name}.") 
+                # print(f"Restored driver for {property_name} on shape key {shape_key_name}.")  #DEBUG
 
             except Exception as e:
-                print(f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
+                self.report({'ERROR'}, f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
 
 def copy_shape_key_animation(source_obj, target_obj):
     ''' Relink all shape key animations (keyframes) for all properties from one object to another '''
     
     # Ensure the source object has an action for shape keys
     if not source_obj.data.shape_keys.animation_data:
-        print(f"{source_obj.name} has no animation data for shape keys.")# DEBUG
+        # print(f"{source_obj.name} has no animation data for shape keys.")# DEBUG
         return
     
     if not source_obj.data.shape_keys.animation_data.action:
-        print(f"{source_obj.name} has no action for shape keys.") # DEBUG
+        # print(f"{source_obj.name} has no action for shape keys.") # DEBUG
         return
     
     # Link the existing action to the target object
     target_obj.data.shape_keys.animation_data_create()  # Create animation data for the target object if needed
     target_obj.data.shape_keys.animation_data.action = source_obj.data.shape_keys.animation_data.action
     
-    print(f"Shape key animations copied from {source_obj.name} to {target_obj.name}.") # DEBUG
-
+    # print(f"Shape key animations copied from {source_obj.name} to {target_obj.name}.") # DEBUG
 
 def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatures):
     ''' Apply the selected modifiers to the mesh even if it has shape keys '''
@@ -236,10 +231,6 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
         if len(original_obj.data.vertices) != len(temp_obj.data.vertices):
             error_message = "Objects no longer have the same amount of vertices after applying the modifiers."
             return False, error_message
-
-        # Add a basis shape key back to the temp object
-        temp_obj.shape_key_add(name='Basis',from_mix=False)
-        temp_obj.active_shape_key_index = 0
 
         # Transfer the temp object as a shape back to orginal
         temp_obj.select_set(True)
@@ -308,7 +299,8 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
                 if modifier.type == 'ARMATURE' and modifier.show_viewport:
                     show_armature_option = True
 
-        if show_armature_option: # only show this if there is an enabled armature modifier on the mesh
+        # only show this if there is an enabled armature modifier on the mesh
+        if show_armature_option: 
             self.layout.separator() 
             self.layout.prop(self, "disable_armatures")
 
@@ -322,7 +314,7 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
 
 # Register and unregister classes
 def menu_func(self, context):
-    self.layout.separator()  # Add a separator before the operator cleaner look
+    self.layout.separator()  # Add a separator before the operator for a cleaner look
     self.layout.operator(OBJECT_OT_apply_modifiers_with_shape_keys.bl_idname)
     
 classes = [
