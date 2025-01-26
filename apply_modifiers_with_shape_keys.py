@@ -13,7 +13,7 @@ import re
 
 # ###
 # Issues to solve:
-# - Need to add the same function to copy and paste any animation data on the shape keys
+# - shape keys are not correctly transferring their positions back to the orignal object.
 
 # Helper functions
 def disable_armature_modifiers(context, selected_modifiers, disable_armatures):
@@ -244,7 +244,7 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
         # Transfer the temp object as a shape back to orginal
         temp_obj.select_set(True)
         context.view_layer.objects.active = original_obj
-        bpy.ops.object.shape_key_transfer()
+        bpy.ops.object.join_shapes()
 
         # Restore shape key properties
         restore_shape_key_properties(original_obj, shape_key_properties)
@@ -253,13 +253,13 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
         restore_shape_key_drivers(original_obj, copy_obj, shape_key_drivers)
 
         # Clean up the temp object
-        # bpy.data.objects.remove(temp_obj)
+        bpy.data.objects.remove(temp_obj)
 
     # Restore any shape key animation
     copy_shape_key_animation(copy_obj, original_obj)
 
     # Clean up the duplicate object
-    # bpy.data.objects.remove(copy_obj)
+    bpy.data.objects.remove(copy_obj)
 
     # Re-enable armature modifiers
     if disable_armatures:
