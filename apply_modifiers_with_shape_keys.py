@@ -260,6 +260,10 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
     # Restore the pin option setting and active shape key index
     bpy.data.objects[original_obj.name].show_only_shape_key = pin_setting
     original_obj.active_shape_key_index =  saved_active_shape_key_index
+
+    # Make sure the original object is selected before finishing
+    original_obj.select_set(True)
+    
     return True, None
 
 # Property Collection
