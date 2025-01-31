@@ -281,6 +281,12 @@ class OBJECT_OT_apply_modifiers_with_shape_keys(bpy.types.Operator):
     disable_armatures: bpy.props.BoolProperty(name="Exclude armature deformation", default=True)
     collection_property: bpy.props.CollectionProperty(type=ModifierList)
 
+    @classmethod
+    def poll(cls, context):
+        active_object = context.active_object
+        # Check if the active object is a mesh, has shape keys, and is in Object mode
+        return active_object and active_object.type == 'MESH' and active_object.data.shape_keys and context.object.mode == 'OBJECT'
+
     def execute(self, context):
         selected_modifiers = [o.name for o in self.collection_property if o.apply_modifier]
         if not selected_modifiers:
