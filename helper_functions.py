@@ -39,10 +39,12 @@ def disable_armature_modifiers(context, selected_modifiers, disable_armatures):
                     modifier.show_viewport = False
     return disabled_armature_modifiers
 
+
 def duplicate_object(obj):
     bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
     bpy.ops.object.duplicate_move(OBJECT_OT_duplicate={"linked": False, "mode": 'TRANSLATION'}, TRANSFORM_OT_translate={"value": (0, 0, 0)})
+
 
 def apply_modifier_to_object(context, obj, selected_modifiers):
     bpy.context.view_layer.objects.active = obj
@@ -55,6 +57,7 @@ def apply_modifier_to_object(context, obj, selected_modifiers):
         except RuntimeError:
             print(f"Skipping broken modifier: {modifier_name}")
 
+
 def save_shape_key_properties(obj, properties):
     ''' This function will save the settings on the shape keys (min/max etc) '''
     properties_list = []
@@ -65,6 +68,7 @@ def save_shape_key_properties(obj, properties):
         properties_list.append(properties_object)
     return properties_list
 
+
 def restore_shape_key_properties(obj, properties_list):
     ''' Restores the settings for each shape key (min/max etc) '''
     for idx, key_block in enumerate(obj.data.shape_keys.key_blocks):
@@ -72,6 +76,7 @@ def restore_shape_key_properties(obj, properties_list):
             continue
         for prop, value in properties_list[idx - 1].items():
             setattr(key_block, prop, value)
+
 
 def copy_shape_key_drivers(obj, shape_key_properties):
     ''' Copy drivers for shape key properties '''
@@ -113,6 +118,7 @@ def copy_shape_key_drivers(obj, shape_key_properties):
             drivers[shape_key_name] = shape_key_drivers
 
     return drivers
+
 
 def restore_shape_key_drivers(obj, copy_obj,drivers, context):
     ''' Restore drivers for shape key properties '''
@@ -168,6 +174,7 @@ def restore_shape_key_drivers(obj, copy_obj,drivers, context):
                 print(f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
                 # self.report({'ERROR'}, f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
 
+
 def copy_shape_key_animation(source_obj, target_obj):
     ''' Relink all shape key animations (keyframes) for all properties from one object to another '''
     
@@ -186,6 +193,8 @@ def copy_shape_key_animation(source_obj, target_obj):
     
     # print(f"Shape key animations copied from {source_obj.name} to {target_obj.name}.") # DEBUG
 
+
+# Primary function (this gets imported and used by the operator)
 def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatures):
     ''' Apply the selected modifiers to the mesh even if it has shape keys '''
     original_obj = context.view_layer.objects.active
