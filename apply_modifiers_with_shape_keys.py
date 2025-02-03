@@ -99,8 +99,8 @@ def copy_shape_key_drivers(obj, shape_key_properties):
 
     return drivers
 
-def restore_shape_key_drivers(obj, copy_obj,drivers):
-    ''' Restore drivers for shape key properties using from_existing() '''
+def restore_shape_key_drivers(obj, copy_obj,drivers, context):
+    ''' Restore drivers for shape key properties '''
 
     if not obj.data.shape_keys.animation_data:
         obj.data.shape_keys.animation_data_create()
@@ -150,7 +150,8 @@ def restore_shape_key_drivers(obj, copy_obj,drivers):
                 # print(f"Restored driver for {property_name} on shape key {shape_key_name}.")  #DEBUG
 
             except Exception as e:
-                self.report({'ERROR'}, f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
+                print(f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
+                # self.report({'ERROR'}, f"Failed to restore driver for {property_name} on shape key {shape_key_name}: {str(e)}")
 
 def copy_shape_key_animation(source_obj, target_obj):
     ''' Relink all shape key animations (keyframes) for all properties from one object to another '''
@@ -174,6 +175,8 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
     ''' Apply the selected modifiers to the mesh even if it has shape keys '''
     original_obj = context.view_layer.objects.active
     shapes_count = len(original_obj.data.shape_keys.key_blocks) if original_obj.data.shape_keys else 0
+    error_message = None
+
     if shapes_count == 0: # if there are no shape keys just apply the selected modifiers
         apply_modifier_to_object(context, original_obj, selected_modifiers)
         return True, None
@@ -216,6 +219,7 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
         # Pin the shape we want
         bpy.data.objects[temp_obj.name].show_only_shape_key = True
         temp_obj.active_shape_key_index = i + 1
+        shape_key_name = temp_obj.active_shape_key.name
 
         # Apply the shape key to freeze the mesh in that position, then apply the modifiers
         for window in context.window_manager.windows:
@@ -229,8 +233,11 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
 
         # Verify the meshes have the same amount of verts
         if len(original_obj.data.vertices) != len(temp_obj.data.vertices):
-            error_message = "Objects no longer have the same amount of vertices after applying the modifiers."
-            return False, error_message
+            error_message = f"{shape_key_name} failed because the mesh no longer have the same amount of vertices after applying the modifiers."
+            # Clean up the temp object and try to move on
+            bpy.data.objects.remove(temp_obj)
+            continue
+            
 
         # Transfer the temp object as a shape back to orginal
         temp_obj.select_set(True)
@@ -241,7 +248,7 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
         restore_shape_key_properties(original_obj, shape_key_properties)
 
         # Restore the drivers for this shape key
-        restore_shape_key_drivers(original_obj, copy_obj, shape_key_drivers)
+        restore_shape_key_drivers(original_obj, copy_obj, shape_key_drivers, context)
 
         # Clean up the temp object
         bpy.data.objects.remove(temp_obj)
@@ -263,6 +270,10 @@ def apply_modifiers_with_shape_keys(context, selected_modifiers, disable_armatur
 
     # Make sure the original object is selected before finishing
     original_obj.select_set(True)
+
+    # Report the error message if any
+    if error_message:
+        return False, error_message
     
     return True, None
 
